@@ -1,0 +1,39 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.header .navbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background-color: #ff9d00;
+  color: #fff;
+  z-index: 10;
+  height: 12vh;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: 8vh;
+  background-color: rgb(218, 233, 247);
+  display: flex;
+  justify-content: center;
+  padding-left: 10px;
+  padding-right: 10px;
+  gap: 10px;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+
+.footer {
+  background-color: #807f7d;
+  text-align: center;
+  color: #fff;
+  height: 10vh;
+}

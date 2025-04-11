@@ -1,0 +1,72 @@
+body, html {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: row;
+}
+
+.map {
+  background-color: rgb(208, 237, 208);
+  padding: 10px;
+  text-align: center;
+  flex: 1 1 60%;
+  min-width: 300px;
+  box-sizing: border-box;
+}
+
+.calculations {
+  background-color: rgb(208, 237, 208);
+  padding: 10px;
+  text-align: center;
+  flex: 1 1 20%;
+  min-width: 300px;
+  box-sizing: border-box;
+}
+
+#calculations-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+#calculations-container h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+#calculations-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#calculations-container label {
+  font-weight: bold;
+}
+
+#calculations-container input {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+#calculations-container button {
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  max-width: 240px;
+}
+
+#calculations-container button:hover {
+  background-color: #0056b3;
+}
+
+
+
