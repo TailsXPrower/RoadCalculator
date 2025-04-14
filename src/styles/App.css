@@ -63,4 +63,44 @@ body, html {
 }
 
 
+.search-bar {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+}
 
+.search-bar input {
+  padding: 5px;
+  font-size: 14px;
+}
+
+.search-bar button {
+  padding: 5px 10px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+
+.suggestion-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  background: rgb(77, 42, 42);
+  border: 1px solid #ccc;
+  max-height: 150px;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0 0;
+}
+
+.suggestion-list li {
+  padding: 8px;
+  cursor: pointer;
+}
+
+.suggestion-list li:hover {
+  /* background-color: #eee; */
+}
