@@ -4,6 +4,7 @@ import L from 'leaflet';
 import axios from 'axios';
 import Loading from './Loading';
 import './App.css';
+import { useMap } from 'react-leaflet';
 
 const redIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -14,13 +15,19 @@ const redIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
-const Map = ({ setDistance, setDuration, setResetRef }) => {
+const Map = ({ setDistance, setDuration, setResetRef, searchedLocation }) => {
   const [location, setLocation] = useState(null);
   const [error, setError] = useState(null);
   const [permissionChecked, setPermissionChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [markers, setMarkers] = useState([]);
   const [routeCoords, setRouteCoords] = useState([]);
+
+  useEffect(() => {
+    if (searchedLocation) {
+      setLocation(searchedLocation);
+    }
+  }, [searchedLocation]);
 
   useEffect(() => {
     requestLocation();
@@ -71,6 +78,18 @@ const Map = ({ setDistance, setDuration, setResetRef }) => {
         setLocation(null);
       }
     );
+  };
+
+  const FlyToLocation = ({ position }) => {
+    const map = useMap();
+
+    useEffect(() => {
+      if (position) {
+        map.flyTo([position.latitude, position.longitude], 8); // or any zoom level
+      }
+    }, [position, map]);
+
+    return null;
   };
 
   const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY;
@@ -134,8 +153,9 @@ const Map = ({ setDistance, setDuration, setResetRef }) => {
       <MapContainer
         center={[centerLat, centerLng]}
         zoom={13}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: '100%', width: '100%', zIndex: 0 }}
       >
+          <FlyToLocation position={location} />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; OpenStreetMap contributors'

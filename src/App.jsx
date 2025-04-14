@@ -1,3 +1,4 @@
+// App.jsx
 import './App.css';
 import Layout from './Layout';
 import Calculations from './Calculations';
@@ -7,16 +8,22 @@ import { useState, useRef } from 'react';
 function App() {
   const [distance, setDistance] = useState(null);
   const [duration, setDuration] = useState(null);
+  const [searchedLocation, setSearchedLocation] = useState(null);
   const mapRef = useRef();
 
   return (
-    <Layout>
+    <Layout onSearch={setSearchedLocation}>
       <div className='main-content'>
         <div className='calculations'>
           <Calculations distance={distance} duration={duration} />
         </div>
         <div className='map'>
-          <Map setDistance={setDistance} setDuration={setDuration} setResetRef={mapRef} />
+          <Map
+            setDistance={setDistance}
+            setDuration={setDuration}
+            setResetRef={mapRef}
+            searchedLocation={searchedLocation}
+          />
         </div>
       </div>
     </Layout>
