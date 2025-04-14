@@ -1,4 +1,4 @@
-import './App.css';
+import './styles/App.css';
 import Layout from './Layout';
 import Calculations from './Calculations';
 import Map from './Map';

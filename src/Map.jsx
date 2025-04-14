@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from '
 import L from 'leaflet';
 import axios from 'axios';
 import Loading from './Loading';
-import './App.css';
+import './styles/App.css';
 
 const redIcon = new L.Icon({
   iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',

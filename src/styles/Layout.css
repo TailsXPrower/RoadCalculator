@@ -1,0 +1,30 @@
+@import "./Global.css";
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  @apply w-auto absolute top-0 z-[-2] h-screen w-screen bg-[#000000] bg-[radial-gradient(#ffffff33_1px,#00091d_1px)] bg-[size:20px_20px];
+}
+
+.navbar {
+  @apply flex py-6 bg-gray-800 text-white m-2
+        rounded-lg shadow-md fixed top-0 left-0 right-0 z-10;
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding-left: 10px;
+  padding-right: 10px;
+  gap: 10px;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  @apply flex pt-12;
+}
+
+.footer {
+  @apply flex py-6 bg-gray-800 text-white m-2
+  rounded-lg shadow-md z-10;
+}

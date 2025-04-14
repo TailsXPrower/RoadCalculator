@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './App.css';
+import './styles/App.css';
 
 const Calculations = ({ distance, duration }) => {
   const [consumption, setConsumption] = useState('');
@@ -29,12 +29,15 @@ const Calculations = ({ distance, duration }) => {
 
   return (
     <div id="calculations-container" style={{ padding: '1rem' }}>
-      <h2>Расчёт маршрута</h2>
+      <div className="mb-5 text-2xl font-bold text-center">
+        <h2>Ceļa kalkulators</h2>
+      </div>
       <form onSubmit={handleSubmit}>
         <div>
           <label>Patēriņš (l/100km): </label>
           <input
             type="number"
+            placeholder={'0'}
             value={consumption}
             onChange={(e) => setConsumption(e.target.value)}
           />
@@ -43,6 +46,7 @@ const Calculations = ({ distance, duration }) => {
           <label>Degvielas cena (€/l): </label>
           <input
             type="number"
+            placeholder={'0'}
             value={price}
             onChange={(e) => setPrice(e.target.value)}
           />
