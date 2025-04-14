@@ -8,7 +8,7 @@
 }
 
 .navbar {
-  @apply flex py-6 bg-gray-800 text-white m-2
+  @apply flex py-4 bg-gray-800 text-white m-2
         rounded-lg shadow-md fixed top-0 left-0 right-0 z-10;
 }
 

@@ -56,33 +56,33 @@ const Layout = ({ children, onSearch }) => {
     };
 
     return (
-        <div className="container">
+        <div className="main">
             <header className='header'>
                 <nav className='navbar'>
-                    <div className="container px-6">
+                    <div className="container px-6 flex justify-between items-center">
                         <ul className="flex space-x-4">
                             <li className="text-white hover:text-gray-300 cursor-pointer">Home</li>
                             <li className="text-white hover:text-gray-300 cursor-pointer">About</li>
                             <li className="text-white hover:text-gray-300 cursor-pointer">Contact</li>
                         </ul>
-                    </div>
-                    <div className="search-bar">
-                        <input
-                            type="text"
-                            placeholder="Search for a place"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                        <button onClick={() => handleSelect({ formatted: searchQuery })}>Search</button>
-                        {suggestions.length > 0 && (
-                            <ul className="suggestion-list">
-                                {suggestions.map((s, idx) => (
-                                    <li key={idx} onClick={() => handleSelect(s)}>
-                                        {s.formatted}
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
+                        <div className="search-bar">
+                            <input
+                                type="text"
+                                placeholder="Search for a place"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                            <button onClick={() => handleSelect({ formatted: searchQuery })}>Search</button>
+                            {suggestions.length > 0 && (
+                                <ul className="suggestion-list">
+                                    {suggestions.map((s, idx) => (
+                                        <li key={idx} onClick={() => handleSelect(s)}>
+                                            {s.formatted}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                     </div>
                 </nav>
             </header>
