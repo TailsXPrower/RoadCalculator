@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents } from 'react-leaflet';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import axios from 'axios';
 import Loading from './Loading';
 import './styles/App.css';
-import { useMap } from 'react-leaflet';
+import { useApi } from './context/ApiContext';
 
 const redIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
@@ -15,58 +14,83 @@ const redIcon = new L.Icon({
     shadowSize: [41, 41],
 });
 
-const Map = ({ setDistance, setDuration, setResetRef, searchedLocation }) => {
+/**
+ * This component is responsible for rendering the map and handling user interactions.
+ * It includes functionality for displaying the user's current location, adding markers,
+ * and calculating routes between markers.
+ * It also handles fetching place names and routing data from the API.
+ */
+const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers, setMarkers }) => {
+
+    // Geocoding and routing API from context
+    // This allows us to fetch place names and route data
+    const { geocoding, routing } = useApi();
+    
+    // State to hold the user's current location
     const [location, setLocation] = useState(null);
+
+    // State to hold the error message, loading state, and permission check
     const [error, setError] = useState(null);
+
+    // State to hold the distance and duration of the route
     const [permissionChecked, setPermissionChecked] = useState(false);
+
+    // State to hold the loading state for the map
     const [loading, setLoading] = useState(true);
-    const [markers, setMarkers] = useState([]);
+
+    // State to hold the route coordinates and place names
     const [routeCoords, setRouteCoords] = useState([]);
 
-    useEffect(() => {
-        if (searchedLocation) {
-            setLocation(searchedLocation);
+    // State to hold the place names for markers
+    const [placeNames, setPlaceNames] = useState({});
+
+    // State to hold the visibility of the location marker
+    const [clickBlocked, setClickBlocked] = useState(false);
+
+    // State to hold the visibility of the location marker
+    const [locationHidden, setLocationHidden] = useState(false);
+    
+    // Default coordinates for the map
+    // If the user's location is not available, we use a default location (Riga, Latvia)
+    const centerLat = location?.latitude || 56.946285;
+    const centerLng = location?.longitude || 24.105078;
+
+    // Ref to hold the click block state
+    const clickBlockedRef = useRef(false);
+
+    // Function to fetch the place name based on latitude and longitude
+    const fetchPlaceName = useCallback(async (lat, lng) => {
+        try {
+            const name = await geocoding.getPlaceName(lat, lng);
+            setPlaceNames(prev => ({ ...prev, [`${lat},${lng}`]: name }));
+            return name;
+        } catch (err) {
+            console.error('Failed to fetch place name:', err);
+            return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
-    }, [searchedLocation]);
+    }, [geocoding]);
 
-    useEffect(() => {
-        requestLocation();
-        if (setResetRef) {
-            setResetRef.current = resetMap;
-        }
-    }, []);
-
-    useEffect(() => {
-        if (markers.length === 2) {
-            fetchRoute();
-        } else {
-            setRouteCoords([]);
-            setDistance(null);
-            setDuration(null);
-        }
-    }, [markers]);
-
-    const resetMap = () => {
-        setMarkers([]);
-        setRouteCoords([]);
-        setDistance(null);
-        setDuration(null);
-        requestLocation();
-    };
-
-    const requestLocation = () => {
+    // Function to request the user's location
+    // It checks if geolocation is supported and requests the current position
+    const requestLocation = useCallback(() => {
         if (!navigator.geolocation) {
             setPermissionChecked(true);
             setLoading(false);
             return;
         }
 
+        setLoading(true);
+        
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setLocation({
+            async (position) => {
+                const newLocation = {
                     latitude: position.coords.latitude,
                     longitude: position.coords.longitude,
-                });
+                };
+                
+                setLocation(newLocation);
+                await fetchPlaceName(newLocation.latitude, newLocation.longitude);
+                
                 setPermissionChecked(true);
                 setLoading(false);
                 setError(null);
@@ -78,82 +102,171 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation }) => {
                 setLocation(null);
             }
         );
-    };
+    }, [fetchPlaceName]);
 
-    const FlyToLocation = ({ position }) => {
-        const map = useMap();
+    // Function to reset the map state
+    const resetMap = useCallback(() => {
+        setMarkers([]);
+        setDistance(null);
+        setDuration(null);
+        setRouteCoords([]);
+        setPlaceNames({});
+        setLocationHidden(false);
+        requestLocation();
+    }, [requestLocation, setDistance, setDuration, setMarkers]);
 
-        useEffect(() => {
-            if (position) {
-                map.flyTo([position.latitude, position.longitude], 8); // or any zoom level
-            }
-        }, [position, map]);
-
-        return null;
-    };
-
-    const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY;
-
-    const fetchRoute = async () => {
+    // Function to fetch the route between markers
+    // It uses the routing API to get the route data based on the coordinates of the markers
+    const fetchRoute = useCallback(async () => {
         const coords = markers.map(m => [m.longitude, m.latitude]);
         try {
-            const response = await axios.post(
-                'https://api.openrouteservice.org/v2/directions/driving-car/geojson',
-                { coordinates: coords },
-                {
-                    headers: {
-                        Authorization: ORS_API_KEY,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
-            const data = response.data.features[0];
-            const route = data.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-
+            const data = await routing.getRoute(coords);
+            const route = data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
             setRouteCoords(route);
-            setDistance(data.properties.summary.distance);
-            setDuration(data.properties.summary.duration);
+            setDistance(data.features[0].properties.summary.distance);
+            setDuration(data.features[0].properties.summary.duration);
         } catch (err) {
             console.error('Routing error:', err);
         }
-    };
+    }, [markers, routing, setDistance, setDuration]);
 
+    // Effect to fetch the place name for the searched location
+    useEffect(() => {
+        if (searchedLocation) {
+            setLocation(searchedLocation);
+            fetchPlaceName(searchedLocation.latitude, searchedLocation.longitude);
+        }
+    }, [searchedLocation, fetchPlaceName]);
+
+    // Effect to request the user's location and set the reset function
+    // It also sets the reset function in the ref if provided
+    useEffect(() => {
+        requestLocation();
+        if (setResetRef) {
+            setResetRef.current = resetMap;
+        }
+    }, [requestLocation, resetMap, setResetRef]);
+
+    // Effect to fetch the route when markers change
+    useEffect(() => {
+        if (markers.length === 2) {
+            fetchRoute();
+        } else {
+            setRouteCoords([]);
+            setDistance(null);
+            setDuration(null);
+        }
+    }, [markers, fetchRoute, setDistance, setDuration]);
+
+    // Effect to check if the location is hidden
+    const toggleLocationMarker = useCallback(() => {
+        setLocationHidden(prev => !prev);
+    }, []);
+
+    // Effect to restore the location marker
+    const restoreLocationMarker = useCallback((e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.nativeEvent) {
+                e.nativeEvent.stopImmediatePropagation();
+            }
+        }
+        
+        // Click block
+        setClickBlocked(true);
+        clickBlockedRef.current = true;
+        
+        // Restore location marker
+        setLocationHidden(false);
+        
+        // Request location again
+        requestLocation();
+        
+        // Reset click block after a timeout
+        setTimeout(() => {
+            setClickBlocked(false);
+            clickBlockedRef.current = false;
+        }, 500);
+    }, [requestLocation]);
+
+    // Effect to check if the location is hidden
     const MapEventHandler = () => {
+        const map = useMap();
+        
+        // Event handler for map clicks
         useMapEvents({
-            click(event) {
-                if (markers.length < 2) {
+            async click(event) {
+                if (markers.length < 2 && !clickBlockedRef.current) {
                     const { lat, lng } = event.latlng;
-                    setMarkers((prev) => [...prev, { latitude: lat, longitude: lng }]);
+                    const name = await fetchPlaceName(lat, lng);
+                    setMarkers(prev => [...prev, { latitude: lat, longitude: lng }]);
                 }
-            },
+            }
         });
+        
         return null;
     };
 
-    const toggleMarkerClick = (index) => {
-        setMarkers((prev) => {
-            const clicked = prev[index];
-            if (clicked.clicked) {
-                return prev.filter((_, i) => i !== index);
-            } else {
-                return prev.map((m, i) =>
-                    i === index ? { ...m, clicked: true } : m
-                );
+    // Function to remove a marker from the map
+    // It prevents the default behavior and stops propagation of the event
+    const removeMarker = useCallback((index, e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.nativeEvent) {
+            e.nativeEvent.stopImmediatePropagation();
+        }
+        
+        setClickBlocked(true);
+        clickBlockedRef.current = true;
+        setMarkers(prev => prev.filter((_, i) => i !== index));
+        
+        setTimeout(() => {
+            setClickBlocked(false);
+            clickBlockedRef.current = false;
+        }, 300);
+    }, [setMarkers]);
+
+    // Function to remove all markers from the map
+    // It prevents the default behavior and stops propagation of the event
+    // It also resets the markers and click block state
+    const removeAllMarkers = useCallback((e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.nativeEvent) {
+            e.nativeEvent.stopImmediatePropagation();
+        }
+        
+        setClickBlocked(true);
+        clickBlockedRef.current = true;
+        setMarkers([]);
+        
+        setTimeout(() => {
+            setClickBlocked(false);
+            clickBlockedRef.current = false;
+        }, 300);
+    }, [setMarkers]);
+
+    const FlyToLocation = ({ position }) => {
+        const map = useMap();
+        useEffect(() => {
+            if (position) {
+                map.flyTo([position.latitude, position.longitude], 8);
             }
-        });
+        }, [position, map]);
+        return null;
     };
 
+    // Request location on component mount
     if (!permissionChecked || loading) return <Loading />;
 
-    const centerLat = location?.latitude || 56.946285;
-    const centerLng = location?.longitude || 24.105078;
-
     return (
-        <div style={{ height: '100%', width: '100%' }}>
+        <div style={{ height: '100%', width: '100%', position: 'relative' }}>
             <MapContainer
                 center={[centerLat, centerLng]}
                 zoom={13}
                 style={{ height: '100%', width: '100%', zIndex: 0 }}
+                key={JSON.stringify(centerLat)}
             >
                 <FlyToLocation position={location} />
                 <TileLayer
@@ -167,31 +280,122 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation }) => {
 
                 {markers.map((marker, index) => (
                     <Marker
-                        key={index}
+                        key={`${marker.latitude}-${marker.longitude}-${index}`}
                         position={[marker.latitude, marker.longitude]}
-                        eventHandlers={{ click: () => toggleMarkerClick(index) }}
+                        eventHandlers={{
+                            click: (e) => {
+                                e.originalEvent.preventDefault();
+                                e.originalEvent.stopPropagation();
+                            }
+                        }}
                     >
                         <Popup>
-                            <strong>{index === 0 ? 'Start (A)' : 'Destination (B)'}</strong><br />
-                            Coordinates: [{marker.latitude.toFixed(5)}, {marker.longitude.toFixed(5)}]
+                            <strong>{index === 0 ? 'Starts (A)' : 'Galapunkts (B)'}</strong><br />
+                            {placeNames[`${marker.latitude},${marker.longitude}`] || 
+                             `${marker.latitude.toFixed(5)}, ${marker.longitude.toFixed(5)}`}
+                            <div style={{ marginTop: '10px' }}>
+                                <button 
+                                    onClick={(e) => removeMarker(index, e)}
+                                    style={{
+                                        padding: '5px 10px',
+                                        marginRight: '5px',
+                                        backgroundColor: '#ff4444',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '3px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Noņemt markers
+                                </button>
+                                {markers.length > 1 && (
+                                    <button 
+                                        onClick={(e) => removeAllMarkers(e)}
+                                        style={{
+                                            padding: '5px 10px',
+                                            backgroundColor: '#444',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Remove all
+                                    </button>
+                                )}
+                            </div>
                         </Popup>
                     </Marker>
                 ))}
-                {location && (
+                {location && !locationHidden && (
                     <Marker
                         position={[location.latitude, location.longitude]}
                         icon={redIcon}
+                        eventHandlers={{
+                            click: (e) => {
+                                e.originalEvent.preventDefault();
+                                e.originalEvent.stopPropagation();
+                            }
+                        }}
                     >
                         <Popup>
-                            <strong>Your current location</strong><br />
-                            [{location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}]
+                            <strong>Tava geolokācija</strong><br />
+                            {placeNames[`${location.latitude},${location.longitude}`] || 
+                             `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}
+                            <div style={{ marginTop: '10px' }}>
+                                <button 
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        toggleLocationMarker();
+                                    }}
+                                    style={{
+                                        padding: '5px 10px',
+                                        backgroundColor: '#ff4444',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '3px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Paslēpt manu atrašanās vietu
+                                </button>
+                            </div>
                         </Popup>
                     </Marker>
                 )}
                 <MapEventHandler />
             </MapContainer>
+
+            {locationHidden && (
+                <div 
+                    style={{
+                        position: 'absolute',
+                        bottom: '20px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        zIndex: 1000
+                    }}
+                >
+                    <button 
+                        onClick={restoreLocationMarker}
+                        style={{
+                            padding: '8px 16px',
+                            backgroundColor: '#4CAF50',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                            pointerEvents: 'auto'
+                        }}
+                    >
+                        Paradīt manu atrašanās vietu
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
 
-export default Map;
+export default React.memo(Map);

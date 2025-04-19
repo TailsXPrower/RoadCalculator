@@ -1,5 +1,7 @@
-
-
+/**
+ * Loading spinner component that displays an animated car GIF
+ * while content is loading.
+ */
 const Loading = () => {
   return (
     <div

@@ -1,31 +1,16 @@
-// App.jsx
-import './styles/App.css';
 import Layout from './Layout';
-import Calculations from './Calculations';
-import Map from './Map';
-import { useState, useRef } from 'react';
+import HomePage from './HomePage';
+import React, { useState } from 'react';
 
+// This is the main App component that initializes the application.
 function App() {
-    const [distance, setDistance] = useState(null);
-    const [duration, setDuration] = useState(null);
+    
+    // State to hold the searched location.
     const [searchedLocation, setSearchedLocation] = useState(null);
-    const mapRef = useRef();
-
+    
     return (
         <Layout onSearch={setSearchedLocation}>
-            <div className='main-content'>
-                <div className='calculations'>
-                    <Calculations distance={distance} duration={duration} />
-                </div>
-                <div className='map'>
-                    <Map
-                        setDistance={setDistance}
-                        setDuration={setDuration}
-                        setResetRef={mapRef}
-                        searchedLocation={searchedLocation}
-                    />
-                </div>
-            </div>
+            <HomePage searchedLocation={searchedLocation} />
         </Layout>
     );
 }
