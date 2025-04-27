@@ -5,6 +5,7 @@ import Loading from './Loading';
 import './styles/App.css';
 import { useApi } from './context/ApiContext';
 
+
 const redIcon = new L.Icon({
     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
     iconSize: [25, 41],
@@ -45,19 +46,19 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     const [placeNames, setPlaceNames] = useState({});
 
     // State to hold the visibility of the location marker
-    const [clickBlocked, setClickBlocked] = useState(false);
-
-    // State to hold the visibility of the location marker
     const [locationHidden, setLocationHidden] = useState(false);
 
     // State to hold the error message for the route
     const [routeError, setRouteError] = useState(null);
 
-    // State to hold the snapped points for the route
-    const [snappedPoints, setSnappedPoints] = useState([]);
-
     // State to hold the map type (map, satellite, hybrid)
     const [mapType, setMapType] = useState('map');
+
+    const [showTraffic, setShowTraffic] = useState(false);
+
+    const [snappedPoints, setSnappedPoints] = useState([]);
+
+    const [clickBlocked, setClickBlocked] = useState(false);
     
     // Default coordinates for the map
     // If the user's location is not available, we use a default location (Riga, Latvia)
@@ -66,6 +67,51 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
 
     // Ref to hold the click block state
     const clickBlockedRef = useRef(false);
+
+      const FlyToController = ({ location, markers }) => {
+        const map = useMap();
+        const mapRef = useRef(map);
+      
+        useEffect(() => {
+          mapRef.current = map;
+        }, [map]);
+      
+        const handleFlyToLocation = useCallback(() => {
+          if (!location) return;
+          console.log('Flying to location:', location);
+          map.flyTo([location.latitude, location.longitude], 15, {
+            duration: 1,
+            easeLinearity: 0.25
+          });
+        }, [location, map]);
+      
+        const handleFlyToMarkerA = useCallback(() => {
+          if (!markers.length) return;
+          console.log('Flying to marker A:', markers[0]);
+          map.flyTo([markers[0].latitude, markers[0].longitude], 15, {
+            duration: 1,
+            easeLinearity: 0.25
+          });
+        }, [markers, map]);
+
+        const handleFlyToMarkerB = useCallback(() => {
+          if (markers.length < 2) return;
+          console.log('Flying to marker B:', markers[1]);
+          map.flyTo([markers[1].latitude, markers[1].longitude], 15, {
+            duration: 1,
+            easeLinearity: 0.25
+          });
+        }, [markers, map]);
+      
+        // Экспортируем функции через ref
+        useEffect(() => {
+          window.flyToLocation = handleFlyToLocation;
+          window.flyToMarkerA = handleFlyToMarkerA;
+            window.flyToMarkerB = handleFlyToMarkerB;
+        }, [handleFlyToLocation, handleFlyToMarkerA]);
+      
+        return null;
+      };
 
     // Function to fetch the place name based on latitude and longitude
     const fetchPlaceName = useCallback(async (lat, lng) => {
@@ -93,36 +139,75 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     // Function to request the user's location
     // It checks if geolocation is supported and requests the current position
     const requestLocation = useCallback(() => {
+        console.log('Requesting location...');
         if (!navigator.geolocation) {
+          console.warn('Geolocation is not supported by this browser');
+          setError('Jūsu pārlūkprogramma neatbalsta atrašanās vietas noteikšanu');
+          setPermissionChecked(true);
+          setLoading(false);
+          return;
+        }
+      
+        setLoading(true);
+        setError(null);
+        
+        const geolocationOptions = {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        };
+      
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            console.log('Geolocation success:', position);
+            try {
+              const newLocation = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy
+              };
+              
+              console.log('Setting new location:', newLocation);
+              setLocation(newLocation);
+              
+              const placeName = await fetchPlaceName(newLocation.latitude, newLocation.longitude);
+              console.log('Fetched place name:', placeName);
+              
+              setPermissionChecked(true);
+              setLoading(false);
+              
+            } catch (err) {
+              console.error('Error processing location:', err);
+              setError('Kļūda apstrādājot atrašanās vietu');
+              setLoading(false);
+            }
+          },
+          (err) => {
+            console.error('Geolocation error:', err);
+            let errorMessage = "Neizdevās iegūt jūsu atrašanās vietu";
+            
+            switch(err.code) {
+              case err.PERMISSION_DENIED:
+                errorMessage = "Lietotājs liegusi piekļuvi atrašanās vietai";
+                break;
+              case err.POSITION_UNAVAILABLE:
+                errorMessage = "Atrašanās vietas informācija nav pieejama";
+                break;
+              case err.TIMEOUT:
+                errorMessage = "Pārsniegts pieprasījuma laika limits";
+                break;
+              default:
+                errorMessage = "Nezināma kļūda";
+            }
+            
+            setError(errorMessage);
             setPermissionChecked(true);
             setLoading(false);
-            return;
-        }
-
-        setLoading(true);
-        
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const newLocation = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                };
-                
-                setLocation(newLocation);
-                await fetchPlaceName(newLocation.latitude, newLocation.longitude);
-                
-                setPermissionChecked(true);
-                setLoading(false);
-                setError(null);
-            },
-            (err) => {
-                setError(err.message || "Failed to get your location.");
-                setPermissionChecked(true);
-                setLoading(false);
-                setLocation(null);
-            }
+            setLocation(null);
+          },
+          geolocationOptions
         );
-    }, [fetchPlaceName]);
+      }, [fetchPlaceName]);
 
     // Function to reset the map state
     const resetMap = useCallback(() => {
@@ -251,22 +336,46 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         
         useMapEvents({
           async click(event) {
-            const path = event.originalEvent.composedPath?.();
-            
-            const isControlClick = path?.some(el => 
-              el.classList && el.classList.contains('leaflet-control')
-            );
-            
-            if (markers.length < 2 && !clickBlockedRef.current && !isControlClick) {
+            try {
+              const path = event.originalEvent.composedPath?.();
+              const isControlClick = path?.some(el => 
+                el.classList && el.classList.contains('leaflet-control')
+              );
+              
+              if (markers.length >= 2) {
+                console.log('Maximum markers reached (2)');
+                return;
+              }
+              
+              if (clickBlockedRef.current) {
+                console.log('Click blocked');
+                return;
+              }
+              
+              if (isControlClick) {
+                console.log('Control click - ignoring');
+                return;
+              }
+              
               const { lat, lng } = event.latlng;
+              console.log('Adding new marker at:', lat, lng);
+              
               const name = await fetchPlaceName(lat, lng);
-              setMarkers(prev => [...prev, { latitude: lat, longitude: lng }]);
+              console.log('Fetched place name:', name);
+              
+              setMarkers(prev => {
+                const newMarkers = [...prev, { latitude: lat, longitude: lng }];
+                console.log('Markers updated:', newMarkers);
+                return newMarkers;
+              });
+            } catch (err) {
+              console.error('Map click error:', err);
             }
           }
         });
         
         return null;
-      };      
+      };     
 
     // Function to remove a marker from the map
     // It prevents the default behavior and stops propagation of the event
@@ -307,17 +416,6 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         }, 300);
     }, [setMarkers]);
 
-    // Effect to handle the map type change
-    const FlyToLocation = ({ position }) => {
-        const map = useMap();
-        useEffect(() => {
-            if (position) {
-                map.flyTo([position.latitude, position.longitude], 8);
-            }
-        }, [position, map]);
-        return null;
-    };
-
     // Request location on component mount
     if (!permissionChecked || loading) return <Loading />;
 
@@ -346,32 +444,48 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             zoom={13}
             style={{ height: '100%', width: '100%', zIndex: 0 }}
             key={JSON.stringify(centerLat)}
-          >
-            <FlyToLocation position={location} />
+            whenCreated={(mapInstance) => { 
+                console.log('Map instance created', mapInstance);
+                mapRef.current = mapInstance;
+            }}
+            >
+            <FlyToController location={location} markers={markers} />
             
             <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            opacity={mapType === 'map' ? 1 : 0}
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              opacity={mapType === 'map' ? 1 : 0}
             />
-
+            
             <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-            opacity={mapType === 'satellite' || mapType === 'hybrid' ? 1 : 0}
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+              opacity={mapType === 'satellite' || mapType === 'hybrid' ? 1 : 0}
             />
-
+            
             {mapType === 'hybrid' && (
-            <TileLayer
+              <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 opacity={0.5}
-            />
+              />
+            )}
+            
+            {/* Слой пробок */}
+            {showTraffic && (
+              <TileLayer
+                url={`https://api.tomtom.com/traffic/map/4/tile/flow/relative/{z}/{x}/{y}.png?key=${import.meta.env.VITE_TOMTOM_API_KEY}`}
+                attribution='© TomTom'
+                maxZoom={22}
+              />
             )}
             
             <div className="leaflet-control leaflet-bar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }}>
               <button 
-                onClick={() => setMapType('map')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMapType('map');
+                }}
                 style={{
                   backgroundColor: mapType === 'map' ? '#f4f4f4' : 'white',
                   fontWeight: mapType === 'map' ? 'bold' : 'normal',
@@ -384,7 +498,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 Karte
               </button>
               <button 
-                onClick={() => setMapType('satellite')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMapType('satellite');
+                }}
                 style={{
                   backgroundColor: mapType === 'satellite' ? '#f4f4f4' : 'white',
                   fontWeight: mapType === 'satellite' ? 'bold' : 'normal',
@@ -397,7 +514,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 Satelīts
               </button>
               <button 
-                onClick={() => setMapType('hybrid')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMapType('hybrid');
+                }}
                 style={{
                   backgroundColor: mapType === 'hybrid' ? '#f4f4f4' : 'white',
                   fontWeight: mapType === 'hybrid' ? 'bold' : 'normal',
@@ -408,6 +528,95 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 }}
               >
                 Hibrīds
+              </button>
+            </div>
+
+            <div className="leaflet-control leaflet-bar" style={{ 
+                position: 'absolute', 
+                top: '130px', 
+                right: '10px', 
+                zIndex: 1000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px'
+                }}>
+                {/* Кнопка перехода к текущей локации */}
+                <button
+                    onClick={() => window.flyToLocation?.()}
+                    style={{
+                    padding: '5px 10px',
+                    backgroundColor: location ? '#4CAF50' : '#cccccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: location ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                    }}
+                    disabled={!location}
+                    title={location ? "Pārvietoties uz savu pašreizējo atrašanās vietu" : "Lokācija nav pieejama"}
+                >
+                    <span>📍</span>
+                    <span>Uz manu atrašanās vietu</span>
+                </button>
+
+                <button
+                    onClick={() => window.flyToMarkerA?.()}
+                    style={{
+                    padding: '5px 10px',
+                    backgroundColor: markers.length > 0 ? '#2196F3' : '#cccccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: markers.length > 0 ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                    }}
+                    disabled={markers.length === 0}
+                    title={markers.length > 0 ? "Pārvietoties uz maršruta sākumpunktu (A)" : "Nav marķieru"}
+                >
+                    <span>🚩</span>
+                    <span>Uz sākumpunktu (A)</span>
+                </button>
+                <button
+                    onClick={() => window.flyToMarkerB?.()}
+                    style={{
+                    padding: '5px 10px',
+                    backgroundColor: markers.length > 1 ? '#FF9800' : '#cccccc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: markers.length > 1 ? 'pointer' : 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                    }}
+                    disabled={markers.length <= 1}
+                    title={markers.length > 1 ? "Pārvietoties uz maršruta galapunktu (B)" : "Nav pietiekami daudz marķieru"}
+                >
+                    <span>🏁</span>
+                    <span>Uz galapunktu (B)</span>
+                </button>
+                </div>
+            
+            <div className="leaflet-control leaflet-bar" style={{ position: 'absolute', top: '10px', right: '88px', zIndex: 1000 }}>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTraffic(!showTraffic);
+                }}
+                style={{
+                  backgroundColor: showTraffic ? '#f4f4f4' : 'white',
+                  fontWeight: showTraffic ? 'bold' : 'normal',
+                  padding: '5px 10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                {showTraffic ? 'Slēpt satiksmi' : 'Rādīt satiksmi'}
               </button>
             </div>
       

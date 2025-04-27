@@ -141,11 +141,30 @@ export const ApiProvider = ({ children }) => {
     }
   };
 
+const trafficApi = {
+    getTraffic: async (bbox) => {
+      try {
+        const response = await axios.get('https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json', {
+          params: {
+            point: `${bbox[1]},${bbox[0]},${bbox[3]},${bbox[2]}`,
+            unit: 'KMPH',
+            key: import.meta.env.VITE_TOMTOM_API_KEY,
+          }
+        });
+        return response.data;
+      } catch (error) {
+        console.error('Traffic API error:', error);
+        throw error;
+      }
+    }
+  };
+
   // Combined API context value
   const api = {
     weather: weatherApi,
     geocoding: geocodingApi,
-    routing: routingApi
+    routing: routingApi,
+    // traffic: trafficApi
   };
 
   return (

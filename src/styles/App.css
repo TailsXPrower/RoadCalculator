@@ -145,3 +145,24 @@ body, html {
 .leaflet-control button {
   pointer-events: all;
 }
+
+.leaflet-control-traffic {
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  padding: 5px;
+}
+
+.leaflet-control-traffic button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 5px 10px;
+  border: none;
+  background: white;
+  cursor: pointer;
+}
+
+.leaflet-control-traffic button:hover {
+  background: #f4f4f4;
+}
