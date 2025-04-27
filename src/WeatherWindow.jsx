@@ -36,8 +36,8 @@ const WeatherWindow = ({ lat, lng, onClose }) => {
             const data = await weather.getForecast(lat, lng);
             setWeatherData(data);
         } catch (err) {
-            console.error('Failed to fetch weather:', err);
-            setError('Не удалось загрузить данные о погоде');
+            console.error('Neizdevās ienest laika ziņas:', err);
+            setError('Neizdevās ielādēt laika ziņas');
         } finally {
             setLoading(false);
         }
@@ -176,7 +176,7 @@ const WeatherWindow = ({ lat, lng, onClose }) => {
                     <div className="weather-details">
                         <div className="detail-row">
                             <span>Spiediens</span>
-                            <span>{weatherData.current.pressure_mb} мбар</span>
+                            <span>{weatherData.current.pressure_mb} mbars</span>
                         </div>
                         <div className="detail-row">
                             <span>Redzamība</span>

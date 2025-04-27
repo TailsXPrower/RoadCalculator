@@ -49,6 +49,9 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
 
     // State to hold the visibility of the location marker
     const [locationHidden, setLocationHidden] = useState(false);
+
+    const [routeError, setRouteError] = useState(null);
+    const [snappedPoints, setSnappedPoints] = useState([]);
     
     // Default coordinates for the map
     // If the user's location is not available, we use a default location (Riga, Latvia)
@@ -69,6 +72,17 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
     }, [geocoding]);
+
+    // Function to snap the coordinates to the nearest road
+    const snapToRoad = useCallback(async (lat, lng) => {
+        try {
+            const response = await routing.getNearestRoad([lng, lat]);
+            return response.waypoints[0].location; // [lng, lat]
+        } catch (err) {
+            console.error('Failed to snap to road:', err);
+            return [lng, lat];
+        }
+    }, [routing]);
 
     // Function to request the user's location
     // It checks if geolocation is supported and requests the current position
@@ -116,27 +130,54 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     }, [requestLocation, setDistance, setDuration, setMarkers]);
 
     // Function to fetch the route between markers
-    // It uses the routing API to get the route data based on the coordinates of the markers
     const fetchRoute = useCallback(async () => {
-        const coords = markers.map(m => [m.longitude, m.latitude]);
-        try {
-            const data = await routing.getRoute(coords);
-            const route = data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-            setRouteCoords(route);
-            setDistance(data.features[0].properties.summary.distance);
-            setDuration(data.features[0].properties.summary.duration);
-        } catch (err) {
-            console.error('Routing error:', err);
+        if (markers.length < 2) {
+            setRouteCoords([]);
+            setDistance(null);
+            setDuration(null);
+            setSnappedPoints([]);
+            return;
         }
-    }, [markers, routing, setDistance, setDuration]);
 
-    // Effect to fetch the place name for the searched location
-    useEffect(() => {
-        if (searchedLocation) {
-            setLocation(searchedLocation);
-            fetchPlaceName(searchedLocation.latitude, searchedLocation.longitude);
+        try {
+            // Snap the markers to the nearest road
+            const snapped = await Promise.all(markers.map(marker => 
+                snapToRoad(marker.latitude, marker.longitude)
+            ));
+            setSnappedPoints(snapped);
+
+            // Fetch the route using the snapped coordinates
+            const data = await routing.getRoute(snapped);
+            
+            if (data.features?.length > 0) {
+                const route = data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+                setRouteCoords(route);
+                setDistance(data.features[0].properties.summary.distance);
+                setDuration(data.features[0].properties.summary.duration);
+                setRouteError(null);
+            } else {
+                throw new Error('Maršruts nav atrasts');
+            }
+        } catch (err) {
+            console.error('Ceļa kļūda:', err);
+            setRouteError('Nevarēja izveidot maršrutu starp norādītajiem punktiem. Mēģiniet izvēlēties punktus tuvāk ceļiem.');
+            setTimeout(() => setRouteError(null), 5000);
+            
+            // Fallback to the original coordinates if routing fails
+            try {
+                const coords = markers.map(m => [m.longitude, m.latitude]);
+                const data = await routing.getRoute(coords);
+                if (data.features?.length > 0) {
+                    const route = data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+                    setRouteCoords(route);
+                    setDistance(data.features[0].properties.summary.distance);
+                    setDuration(data.features[0].properties.summary.duration);
+                }
+            } catch (fallbackErr) {
+                console.error('Fallback routing failed:', fallbackErr);
+            }
         }
-    }, [searchedLocation, fetchPlaceName]);
+    }, [markers, routing, setDistance, setDuration, snapToRoad]);
 
     // Effect to request the user's location and set the reset function
     // It also sets the reset function in the ref if provided
@@ -146,6 +187,13 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             setResetRef.current = resetMap;
         }
     }, [requestLocation, resetMap, setResetRef]);
+
+    useEffect(() => {
+        if (searchedLocation) {
+            setLocation(searchedLocation);
+            fetchPlaceName(searchedLocation.latitude, searchedLocation.longitude);
+        }
+    }, [searchedLocation, fetchPlaceName]);
 
     // Effect to fetch the route when markers change
     useEffect(() => {
@@ -262,6 +310,23 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
 
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+            {routeError && (
+                <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 1000,
+                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
+                    color: 'white',
+                    padding: '10px',
+                    borderRadius: '5px',
+                    maxWidth: '80%',
+                    textAlign: 'center'
+                }}>
+                    {routeError}
+                </div>
+            )}
             <MapContainer
                 center={[centerLat, centerLng]}
                 zoom={13}
@@ -320,7 +385,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                                             cursor: 'pointer'
                                         }}
                                     >
-                                        Remove all
+                                        Noņemt visus marķierus
                                     </button>
                                 )}
                             </div>

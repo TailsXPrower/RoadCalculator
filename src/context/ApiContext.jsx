@@ -1,15 +1,18 @@
+// ApiContext.js
 import { createContext, useContext } from 'react';
 import axios from 'axios';
 
 const ApiContext = createContext();
 
-/// API Provider component that wraps the application
-/// and provides access to various APIs.
-/// It uses the Context API to share API methods across components.
 export const ApiProvider = ({ children }) => {
-  // API Keys from environment variables
+
+    // Environment variables for API keys
   const WEATHER_API_KEY = import.meta.env.VITE_WEATHER_API_KEY;
+
+    // OpenCage Geocoding API key
   const OPENCAGE_API_KEY = import.meta.env.VITE_OPENCAGE_API_KEY;
+
+    // OpenRouteService API key
   const ORS_API_KEY = import.meta.env.VITE_ORS_API_KEY;
 
   // WeatherAPI.com methods
@@ -26,18 +29,14 @@ export const ApiProvider = ({ children }) => {
             lang: 'ru'
           }
         });
-        return {
-          current: response.data.current,
-          forecast: response.data.forecast,
-          location: response.data.location
-        };
+        return response.data;
       } catch (error) {
         console.error('WeatherAPI error:', error);
         throw error;
       }
     },
 
-    // WeatherAPI.com location search
+    // Get current weather
     searchLocations: async (query) => {
       try {
         const response = await axios.get('https://api.weatherapi.com/v1/search.json', {
@@ -74,7 +73,7 @@ export const ApiProvider = ({ children }) => {
       }
     },
 
-    // Reverse geocoding to get place name from coordinates
+    // Get place name from coordinates
     getPlaceName: async (lat, lng) => {
       try {
         const response = await axios.get('https://api.opencagedata.com/geocode/v1/json', {
@@ -116,6 +115,29 @@ export const ApiProvider = ({ children }) => {
         console.error('Routing error:', error);
         throw error;
       }
+    },
+
+    // Get route duration and distance
+    getNearestRoad: async (coordinate) => {
+      try {
+        const response = await axios.post(
+          'https://api.openrouteservice.org/v2/snap/point',
+          {
+            points: [coordinate],
+            vehicle: 'driving-car'
+          },
+          {
+            headers: {
+              Authorization: ORS_API_KEY,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        return response.data;
+      } catch (error) {
+        console.error('Nearest road error:', error);
+        throw error;
+      }
     }
   };
 
@@ -133,8 +155,6 @@ export const ApiProvider = ({ children }) => {
   );
 };
 
-/// Custom hook to use the API context
-/// This hook allows components to access the API methods
 export const useApi = () => {
   const context = useContext(ApiContext);
   if (!context) {

@@ -124,6 +124,15 @@ const Layout = ({ children, onSearch }) => {
             setSuggestions([]);
         }
     }, [isMobile]);
+ 
+    // Generate random place coordinates
+    const generateRandomPlace = useCallback(() => {
+        const lat = (Math.random() * 180 - 90).toFixed(6);
+        const lng = (Math.random() * 360 - 180).toFixed(6);
+        const newCoords = { lat: parseFloat(lat), lng: parseFloat(lng) };
+        setRandomPlace(newCoords);
+        return newCoords;
+    }, []);
 
     // Handle selection of a suggestion
     // This function sets the search query to the selected suggestion
@@ -144,24 +153,15 @@ const Layout = ({ children, onSearch }) => {
         }
         setSuggestions([]);
         setMenuOpen(false);
-    }, [onSearch]);
-
-    // Generate random place coordinates
-    const generateRandomPlace = useCallback(() => {
-        const lat = (Math.random() * 180 - 90).toFixed(6);
-        const lng = (Math.random() * 360 - 180).toFixed(6);
-        setRandomPlace({ lat: parseFloat(lat), lng: parseFloat(lng) });
-        return { lat: parseFloat(lat), lng: parseFloat(lng) };
-    }, []);
+    }, [onSearch, generateRandomPlace]);
 
     // Handle input focus
     const handleInputFocus = useCallback(() => {
         if (activeHeader !== 'Home') return;
         
         setIsSearchFocused(true);
-        if (!randomPlace.lat || !randomPlace.lng) {
-            generateRandomPlace();
-        }
+        // Generate random place suggestion if no suggestions are available
+        generateRandomPlace();
         
         setSuggestions(prev => {
             const randomPlaceSuggestion = {
@@ -180,7 +180,7 @@ const Layout = ({ children, onSearch }) => {
             }
             return prev;
         });
-    }, [randomPlace, generateRandomPlace, activeHeader]);
+    }, [randomPlace, activeHeader, generateRandomPlace]);
 
     // Handle search on Enter key press
     const handleSearch = useCallback(async () => {
@@ -257,8 +257,9 @@ const Layout = ({ children, onSearch }) => {
                                         key={item.name}
                                         className={`cursor-pointer ${isMobile ? 'py-2 border-b border-blue-700' : ''}`}
                                         style={{
-                                            color: activeHeader === item.name ? 'grey' : 'white',
-                                            fontWeight: activeHeader === item.name ? 'bold' : 'normal'
+                                            // color: activeHeader === item.name ? 'grey' : 'white',
+                                            fontWeight: activeHeader === item.name ? '900' : '400',
+                                            letterSpacing: activeHeader === item.name ? '0.5px' : '0px',
                                         }}
                                         onClick={() => handleHeaderClick(item.name)}
                                     >
