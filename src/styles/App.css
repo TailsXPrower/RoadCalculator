@@ -105,3 +105,43 @@ body, html {
 .suggestion-list li:hover {
   /* background-color: #eee; */
 }
+
+
+.leaflet-layer.hidden {
+  display: none !important;
+}
+
+.leaflet-layer.opacity-50 {
+  opacity: 0.5 !important;
+}
+
+.leaflet-control {
+  position: relative;
+  z-index: 1000;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  padding: 5px;
+}
+
+.leaflet-control button {
+  display: block;
+  width: 100%;
+  margin: 2px 0;
+  padding: 5px 10px;
+  border: none;
+  background: white;
+  cursor: pointer;
+}
+
+.leaflet-control button:hover {
+  background: #f4f4f4;
+}
+
+.leaflet-control * {
+  pointer-events: none;
+}
+
+.leaflet-control button {
+  pointer-events: all;
+}

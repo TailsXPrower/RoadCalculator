@@ -50,8 +50,14 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     // State to hold the visibility of the location marker
     const [locationHidden, setLocationHidden] = useState(false);
 
+    // State to hold the error message for the route
     const [routeError, setRouteError] = useState(null);
+
+    // State to hold the snapped points for the route
     const [snappedPoints, setSnappedPoints] = useState([]);
+
+    // State to hold the map type (map, satellite, hybrid)
+    const [mapType, setMapType] = useState('map');
     
     // Default coordinates for the map
     // If the user's location is not available, we use a default location (Riga, Latvia)
@@ -188,6 +194,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         }
     }, [requestLocation, resetMap, setResetRef]);
 
+    // Effect to fetch the place name when the location changes
     useEffect(() => {
         if (searchedLocation) {
             setLocation(searchedLocation);
@@ -238,23 +245,28 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         }, 500);
     }, [requestLocation]);
 
-    // Effect to check if the location is hidden
+    // Effect to handle map events
     const MapEventHandler = () => {
         const map = useMap();
         
-        // Event handler for map clicks
         useMapEvents({
-            async click(event) {
-                if (markers.length < 2 && !clickBlockedRef.current) {
-                    const { lat, lng } = event.latlng;
-                    const name = await fetchPlaceName(lat, lng);
-                    setMarkers(prev => [...prev, { latitude: lat, longitude: lng }]);
-                }
+          async click(event) {
+            const path = event.originalEvent.composedPath?.();
+            
+            const isControlClick = path?.some(el => 
+              el.classList && el.classList.contains('leaflet-control')
+            );
+            
+            if (markers.length < 2 && !clickBlockedRef.current && !isControlClick) {
+              const { lat, lng } = event.latlng;
+              const name = await fetchPlaceName(lat, lng);
+              setMarkers(prev => [...prev, { latitude: lat, longitude: lng }]);
             }
+          }
         });
         
         return null;
-    };
+      };      
 
     // Function to remove a marker from the map
     // It prevents the default behavior and stops propagation of the event
@@ -295,6 +307,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         }, 300);
     }, [setMarkers]);
 
+    // Effect to handle the map type change
     const FlyToLocation = ({ position }) => {
         const map = useMap();
         useEffect(() => {
@@ -310,157 +323,218 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
 
     return (
         <div style={{ height: '100%', width: '100%', position: 'relative' }}>
-            {routeError && (
-                <div style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 1000,
-                    backgroundColor: 'rgba(255, 0, 0, 0.7)',
-                    color: 'white',
-                    padding: '10px',
-                    borderRadius: '5px',
-                    maxWidth: '80%',
-                    textAlign: 'center'
-                }}>
-                    {routeError}
-                </div>
+          {routeError && (
+            <div style={{
+              position: 'absolute',
+              top: '10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              backgroundColor: 'rgba(255, 0, 0, 0.7)',
+              color: 'white',
+              padding: '10px',
+              borderRadius: '5px',
+              maxWidth: '80%',
+              textAlign: 'center'
+            }}>
+              {routeError}
+            </div>
+          )}
+          
+          <MapContainer
+            center={[centerLat, centerLng]}
+            zoom={13}
+            style={{ height: '100%', width: '100%', zIndex: 0 }}
+            key={JSON.stringify(centerLat)}
+          >
+            <FlyToLocation position={location} />
+            
+            <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            opacity={mapType === 'map' ? 1 : 0}
+            />
+
+            <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            opacity={mapType === 'satellite' || mapType === 'hybrid' ? 1 : 0}
+            />
+
+            {mapType === 'hybrid' && (
+            <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                opacity={0.5}
+            />
             )}
-            <MapContainer
-                center={[centerLat, centerLng]}
-                zoom={13}
-                style={{ height: '100%', width: '100%', zIndex: 0 }}
-                key={JSON.stringify(centerLat)}
-            >
-                <FlyToLocation position={location} />
-                <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; OpenStreetMap contributors'
-                />
-
-                {routeCoords.length > 0 && (
-                    <Polyline positions={routeCoords} color="blue" />
-                )}
-
-                {markers.map((marker, index) => (
-                    <Marker
-                        key={`${marker.latitude}-${marker.longitude}-${index}`}
-                        position={[marker.latitude, marker.longitude]}
-                        eventHandlers={{
-                            click: (e) => {
-                                e.originalEvent.preventDefault();
-                                e.originalEvent.stopPropagation();
-                            }
-                        }}
-                    >
-                        <Popup>
-                            <strong>{index === 0 ? 'Starts (A)' : 'Galapunkts (B)'}</strong><br />
-                            {placeNames[`${marker.latitude},${marker.longitude}`] || 
-                             `${marker.latitude.toFixed(5)}, ${marker.longitude.toFixed(5)}`}
-                            <div style={{ marginTop: '10px' }}>
-                                <button 
-                                    onClick={(e) => removeMarker(index, e)}
-                                    style={{
-                                        padding: '5px 10px',
-                                        marginRight: '5px',
-                                        backgroundColor: '#ff4444',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '3px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Noņemt markers
-                                </button>
-                                {markers.length > 1 && (
-                                    <button 
-                                        onClick={(e) => removeAllMarkers(e)}
-                                        style={{
-                                            padding: '5px 10px',
-                                            backgroundColor: '#444',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '3px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Noņemt visus marķierus
-                                    </button>
-                                )}
-                            </div>
-                        </Popup>
-                    </Marker>
-                ))}
-                {location && !locationHidden && (
-                    <Marker
-                        position={[location.latitude, location.longitude]}
-                        icon={redIcon}
-                        eventHandlers={{
-                            click: (e) => {
-                                e.originalEvent.preventDefault();
-                                e.originalEvent.stopPropagation();
-                            }
-                        }}
-                    >
-                        <Popup>
-                            <strong>Tava geolokācija</strong><br />
-                            {placeNames[`${location.latitude},${location.longitude}`] || 
-                             `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}
-                            <div style={{ marginTop: '10px' }}>
-                                <button 
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        toggleLocationMarker();
-                                    }}
-                                    style={{
-                                        padding: '5px 10px',
-                                        backgroundColor: '#ff4444',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '3px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Paslēpt manu atrašanās vietu
-                                </button>
-                            </div>
-                        </Popup>
-                    </Marker>
-                )}
-                <MapEventHandler />
-            </MapContainer>
-
-            {locationHidden && (
-                <div 
-                    style={{
-                        position: 'absolute',
-                        bottom: '20px',
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        zIndex: 1000
-                    }}
-                >
+            
+            <div className="leaflet-control leaflet-bar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }}>
+              <button 
+                onClick={() => setMapType('map')}
+                style={{
+                  backgroundColor: mapType === 'map' ? '#f4f4f4' : 'white',
+                  fontWeight: mapType === 'map' ? 'bold' : 'normal',
+                  padding: '5px 10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                Karte
+              </button>
+              <button 
+                onClick={() => setMapType('satellite')}
+                style={{
+                  backgroundColor: mapType === 'satellite' ? '#f4f4f4' : 'white',
+                  fontWeight: mapType === 'satellite' ? 'bold' : 'normal',
+                  padding: '5px 10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                Satelīts
+              </button>
+              <button 
+                onClick={() => setMapType('hybrid')}
+                style={{
+                  backgroundColor: mapType === 'hybrid' ? '#f4f4f4' : 'white',
+                  fontWeight: mapType === 'hybrid' ? 'bold' : 'normal',
+                  padding: '5px 10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  width: '100%'
+                }}
+              >
+                Hibrīds
+              </button>
+            </div>
+      
+            {routeCoords.length > 0 && (
+              <Polyline positions={routeCoords} color="blue" />
+            )}
+      
+            {markers.map((marker, index) => (
+              <Marker
+                key={`${marker.latitude}-${marker.longitude}-${index}`}
+                position={[marker.latitude, marker.longitude]}
+                eventHandlers={{
+                  click: (e) => {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                  }
+                }}
+              >
+                <Popup>
+                  <strong>{index === 0 ? 'Starts (A)' : 'Galapunkts (B)'}</strong><br />
+                  {placeNames[`${marker.latitude},${marker.longitude}`] || 
+                    `${marker.latitude.toFixed(5)}, ${marker.longitude.toFixed(5)}`}
+                  <div style={{ marginTop: '10px' }}>
                     <button 
-                        onClick={restoreLocationMarker}
-                        style={{
-                            padding: '8px 16px',
-                            backgroundColor: '#4CAF50',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                            pointerEvents: 'auto'
-                        }}
+                      onClick={(e) => removeMarker(index, e)}
+                      style={{
+                        padding: '5px 10px',
+                        marginRight: '5px',
+                        backgroundColor: '#ff4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
                     >
-                        Paradīt manu atrašanās vietu
+                      Noņemt markers
                     </button>
-                </div>
+                    {markers.length > 1 && (
+                      <button 
+                        onClick={(e) => removeAllMarkers(e)}
+                        style={{
+                          padding: '5px 10px',
+                          backgroundColor: '#444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '3px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Noņemt visus marķierus
+                      </button>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+            
+            {location && !locationHidden && (
+              <Marker
+                position={[location.latitude, location.longitude]}
+                icon={redIcon}
+                eventHandlers={{
+                  click: (e) => {
+                    e.originalEvent.preventDefault();
+                    e.originalEvent.stopPropagation();
+                  }
+                }}
+              >
+                <Popup>
+                  <strong>Tava geolokācija</strong><br />
+                  {placeNames[`${location.latitude},${location.longitude}`] || 
+                    `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}
+                  <div style={{ marginTop: '10px' }}>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        toggleLocationMarker();
+                      }}
+                      style={{
+                        padding: '5px 10px',
+                        backgroundColor: '#ff4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Paslēpt manu atrašanās vietu
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
             )}
+            
+            <MapEventHandler />
+          </MapContainer>
+      
+          {locationHidden && (
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 1000
+              }}
+            >
+              <button 
+                onClick={restoreLocationMarker}
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                  pointerEvents: 'auto'
+                }}
+              >
+                Paradīt manu atrašanās vietu
+              </button>
+            </div>
+          )}
         </div>
-    );
-};
+      );
+    }
 
 export default React.memo(Map);
