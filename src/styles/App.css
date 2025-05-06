@@ -16,6 +16,7 @@ body, html {
   text-align: center;
   flex: 1 1 60%;
   min-width: 300px;
+  min-height: 300px;
   box-sizing: border-box;
 }
 
@@ -55,7 +56,7 @@ body, html {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  @apply w-auto mx-12;
+  @apply w-auto;
 }
 
 #calculations-container button:hover {
@@ -67,6 +68,7 @@ body, html {
     position: relative;
     display: flex;
     align-items: center;
+    @apply gap-4;
 }
 
 .search-bar input {
@@ -79,7 +81,7 @@ body, html {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    @apply w-auto mx-12 p-2 px-6;
+    @apply w-auto p-2 px-6;
 }
 
 .suggestion-list {
