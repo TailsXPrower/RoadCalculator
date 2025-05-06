@@ -88,8 +88,6 @@ const WeatherWindow = ({ lat, lng, onClose }) => {
     return (
         <div className="weather-modal" onClick={(e) => e.target === e.currentTarget && onClose()}>
             <div className="weather-modal-content">
-                <button className="weather-modal-close" onClick={onClose}>×</button>
-                
                 <div className="weather-header">
                     <h2>Laikapstākļi: {weatherData.location.name}</h2>
                     <button className="refresh-btn" onClick={handleRefresh}>
@@ -99,6 +97,7 @@ const WeatherWindow = ({ lat, lng, onClose }) => {
                         </svg>
                         Atsvaidzināt
                     </button>
+                    <button className="weather-modal-close" onClick={onClose}>×</button>
                 </div>
 
                 <div className="weather-tabs">
