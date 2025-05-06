@@ -55,9 +55,9 @@ const Calculations = ({ distance, duration, markers }) => {
 
   // Function to handle form submission
   // It prevents the default form submission behavior and checks if all fields are filled
-  const handleSubmit = useCallback((e) => {    
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
-    
+
     if (!calculatedResults) {
       alert('Ievadiet visus laukus + 2 markeri kartē!');
       return;
@@ -68,7 +68,7 @@ const Calculations = ({ distance, duration, markers }) => {
 
   // Function to handle the click event for showing weather
   // It checks if the markers are set and then shows the weather window
-  const handleWeatherClick = useCallback(() => {    
+  const handleWeatherClick = useCallback(() => {
     if (!markers || markers.length < 2) {
       alert('Iestatiet galamērķa punktu (B) kartē!');
       return;
@@ -95,6 +95,7 @@ const Calculations = ({ distance, duration, markers }) => {
           <input
             name="consumption"
             min={0}
+            step="0.001"
             type="number"
             placeholder={'0'}
             value={inputs.consumption}
@@ -106,6 +107,7 @@ const Calculations = ({ distance, duration, markers }) => {
           <input
             name="price"
             min={0}
+            step="0.001"
             type="number"
             placeholder={'0'}
             value={inputs.price}
@@ -122,8 +124,8 @@ const Calculations = ({ distance, duration, markers }) => {
           <p>Laiks ceļā: {result.durationMin} min.</p>
           <p>Patērēta degviela: {result.fuelUsed} L</p>
           <p>Ceļojuma izmaksas: €{result.totalCost}</p>
-          <button 
-            type='button' 
+          <button
+            type='button'
             onClick={handleWeatherClick}
             style={{
               marginTop: '1rem',

@@ -26,7 +26,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     // Geocoding and routing API from context
     // This allows us to fetch place names and route data
     const { geocoding, routing } = useApi();
-    
+
     // State to hold the user's current location
     const [location, setLocation] = useState(null);
 
@@ -59,7 +59,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     const [snappedPoints, setSnappedPoints] = useState([]);
 
     const [clickBlocked, setClickBlocked] = useState(false);
-    
+
+    const [gasStations, setGasStations] = useState([]);
+    const [showGasStations, setShowGasStations] = useState(false);
+
     // Default coordinates for the map
     // If the user's location is not available, we use a default location (Riga, Latvia)
     const centerLat = location?.latitude || 56.946285;
@@ -71,11 +74,11 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
       const FlyToController = ({ location, markers }) => {
         const map = useMap();
         const mapRef = useRef(map);
-      
+
         useEffect(() => {
           mapRef.current = map;
         }, [map]);
-      
+
         const handleFlyToLocation = useCallback(() => {
           if (!location) return;
           console.log('Flying to location:', location);
@@ -84,7 +87,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             easeLinearity: 0.25
           });
         }, [location, map]);
-      
+
         const handleFlyToMarkerA = useCallback(() => {
           if (!markers.length) return;
           console.log('Flying to marker A:', markers[0]);
@@ -102,14 +105,14 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             easeLinearity: 0.25
           });
         }, [markers, map]);
-      
+
         // Экспортируем функции через ref
         useEffect(() => {
           window.flyToLocation = handleFlyToLocation;
           window.flyToMarkerA = handleFlyToMarkerA;
             window.flyToMarkerB = handleFlyToMarkerB;
         }, [handleFlyToLocation, handleFlyToMarkerA]);
-      
+
         return null;
       };
 
@@ -147,16 +150,16 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
           setLoading(false);
           return;
         }
-      
+
         setLoading(true);
         setError(null);
-        
+
         const geolocationOptions = {
           enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0
         };
-      
+
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             console.log('Geolocation success:', position);
@@ -166,16 +169,16 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 longitude: position.coords.longitude,
                 accuracy: position.coords.accuracy
               };
-              
+
               console.log('Setting new location:', newLocation);
               setLocation(newLocation);
-              
+
               const placeName = await fetchPlaceName(newLocation.latitude, newLocation.longitude);
               console.log('Fetched place name:', placeName);
-              
+
               setPermissionChecked(true);
               setLoading(false);
-              
+
             } catch (err) {
               console.error('Error processing location:', err);
               setError('Kļūda apstrādājot atrašanās vietu');
@@ -185,7 +188,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
           (err) => {
             console.error('Geolocation error:', err);
             let errorMessage = "Neizdevās iegūt jūsu atrašanās vietu";
-            
+
             switch(err.code) {
               case err.PERMISSION_DENIED:
                 errorMessage = "Lietotājs liegusi piekļuvi atrašanās vietai";
@@ -199,7 +202,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               default:
                 errorMessage = "Nezināma kļūda";
             }
-            
+
             setError(errorMessage);
             setPermissionChecked(true);
             setLoading(false);
@@ -232,14 +235,14 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
 
         try {
             // Snap the markers to the nearest road
-            const snapped = await Promise.all(markers.map(marker => 
+            const snapped = await Promise.all(markers.map(marker =>
                 snapToRoad(marker.latitude, marker.longitude)
             ));
             setSnappedPoints(snapped);
 
             // Fetch the route using the snapped coordinates
             const data = await routing.getRoute(snapped);
-            
+
             if (data.features?.length > 0) {
                 const route = data.features[0].geometry.coordinates.map(([lng, lat]) => [lat, lng]);
                 setRouteCoords(route);
@@ -253,7 +256,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             console.error('Ceļa kļūda:', err);
             setRouteError('Nevarēja izveidot maršrutu starp norādītajiem punktiem. Mēģiniet izvēlēties punktus tuvāk ceļiem.');
             setTimeout(() => setRouteError(null), 5000);
-            
+
             // Fallback to the original coordinates if routing fails
             try {
                 const coords = markers.map(m => [m.longitude, m.latitude]);
@@ -312,17 +315,17 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 e.nativeEvent.stopImmediatePropagation();
             }
         }
-        
+
         // Click block
         setClickBlocked(true);
         clickBlockedRef.current = true;
-        
+
         // Restore location marker
         setLocationHidden(false);
-        
+
         // Request location again
         requestLocation();
-        
+
         // Reset click block after a timeout
         setTimeout(() => {
             setClickBlocked(false);
@@ -333,36 +336,36 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
     // Effect to handle map events
     const MapEventHandler = () => {
         const map = useMap();
-        
+
         useMapEvents({
           async click(event) {
             try {
               const path = event.originalEvent.composedPath?.();
-              const isControlClick = path?.some(el => 
+              const isControlClick = path?.some(el =>
                 el.classList && el.classList.contains('leaflet-control')
               );
-              
+
               if (markers.length >= 2) {
                 console.log('Maximum markers reached (2)');
                 return;
               }
-              
+
               if (clickBlockedRef.current) {
                 console.log('Click blocked');
                 return;
               }
-              
+
               if (isControlClick) {
                 console.log('Control click - ignoring');
                 return;
               }
-              
+
               const { lat, lng } = event.latlng;
               console.log('Adding new marker at:', lat, lng);
-              
+
               const name = await fetchPlaceName(lat, lng);
               console.log('Fetched place name:', name);
-              
+
               setMarkers(prev => {
                 const newMarkers = [...prev, { latitude: lat, longitude: lng }];
                 console.log('Markers updated:', newMarkers);
@@ -373,9 +376,9 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
             }
           }
         });
-        
+
         return null;
-      };     
+      };
 
     // Function to remove a marker from the map
     // It prevents the default behavior and stops propagation of the event
@@ -385,16 +388,37 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         if (e.nativeEvent) {
             e.nativeEvent.stopImmediatePropagation();
         }
-        
+
         setClickBlocked(true);
         clickBlockedRef.current = true;
         setMarkers(prev => prev.filter((_, i) => i !== index));
-        
+
         setTimeout(() => {
             setClickBlocked(false);
             clickBlockedRef.current = false;
         }, 300);
     }, [setMarkers]);
+
+  const fetchGasStations = useCallback(async () => {
+    try {
+        const center = mapRef.current?.getCenter();
+        if (!center) return;
+
+        const stations = await routing.getGasStations(center.lat, center.lng); // Assuming 'routing' is the correct context
+        setGasStations(stations);
+    } catch (error) {
+        console.error('Failed to fetch gas stations:', error);
+    }
+  }, []);
+
+  // Add this effect to fetch gas stations when the button is toggled
+  useEffect(() => {
+      if (showGasStations) {
+          fetchGasStations();
+      } else {
+          setGasStations([]);
+      }
+  }, [showGasStations, fetchGasStations]);
 
     // Function to remove all markers from the map
     // It prevents the default behavior and stops propagation of the event
@@ -405,11 +429,11 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
         if (e.nativeEvent) {
             e.nativeEvent.stopImmediatePropagation();
         }
-        
+
         setClickBlocked(true);
         clickBlockedRef.current = true;
         setMarkers([]);
-        
+
         setTimeout(() => {
             setClickBlocked(false);
             clickBlockedRef.current = false;
@@ -438,31 +462,31 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               {routeError}
             </div>
           )}
-          
+
           <MapContainer
             center={[centerLat, centerLng]}
             zoom={13}
             style={{ height: '100%', width: '100%', zIndex: 0 }}
             key={JSON.stringify(centerLat)}
-            whenCreated={(mapInstance) => { 
+            whenCreated={(mapInstance) => {
                 console.log('Map instance created', mapInstance);
                 mapRef.current = mapInstance;
             }}
             >
             <FlyToController location={location} markers={markers} />
-            
+
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               opacity={mapType === 'map' ? 1 : 0}
             />
-            
+
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               attribution='Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
               opacity={mapType === 'satellite' || mapType === 'hybrid' ? 1 : 0}
             />
-            
+
             {mapType === 'hybrid' && (
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -470,7 +494,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 opacity={0.5}
               />
             )}
-            
+
             {/* Слой пробок */}
             {showTraffic && (
               <TileLayer
@@ -479,9 +503,9 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 maxZoom={22}
               />
             )}
-            
+
             <div className="leaflet-control leaflet-bar" style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1000 }}>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMapType('map');
@@ -497,7 +521,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               >
                 Karte
               </button>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMapType('satellite');
@@ -513,7 +537,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               >
                 Satelīts
               </button>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setMapType('hybrid');
@@ -531,10 +555,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               </button>
             </div>
 
-            <div className="leaflet-control leaflet-bar" style={{ 
-                position: 'absolute', 
-                top: '130px', 
-                right: '10px', 
+            <div className="leaflet-control leaflet-bar" style={{
+                position: 'absolute',
+                top: '130px',
+                right: '10px',
                 zIndex: 1000,
                 display: 'flex',
                 flexDirection: 'column',
@@ -600,9 +624,9 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                     <span>Uz galapunktu (B)</span>
                 </button>
                 </div>
-            
+
             <div className="leaflet-control leaflet-bar" style={{ position: 'absolute', top: '10px', right: '88px', zIndex: 1000 }}>
-              <button 
+              <button
                 onClick={(e) => {
                   e.stopPropagation();
                   setShowTraffic(!showTraffic);
@@ -619,11 +643,11 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 {showTraffic ? 'Slēpt satiksmi' : 'Rādīt satiksmi'}
               </button>
             </div>
-      
+
             {routeCoords.length > 0 && (
               <Polyline positions={routeCoords} color="blue" />
             )}
-      
+
             {markers.map((marker, index) => (
               <Marker
                 key={`${marker.latitude}-${marker.longitude}-${index}`}
@@ -637,10 +661,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               >
                 <Popup>
                   <strong>{index === 0 ? 'Starts (A)' : 'Galapunkts (B)'}</strong><br />
-                  {placeNames[`${marker.latitude},${marker.longitude}`] || 
+                  {placeNames[`${marker.latitude},${marker.longitude}`] ||
                     `${marker.latitude.toFixed(5)}, ${marker.longitude.toFixed(5)}`}
                   <div style={{ marginTop: '10px' }}>
-                    <button 
+                    <button
                       onClick={(e) => removeMarker(index, e)}
                       style={{
                         padding: '5px 10px',
@@ -655,7 +679,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                       Noņemt markers
                     </button>
                     {markers.length > 1 && (
-                      <button 
+                      <button
                         onClick={(e) => removeAllMarkers(e)}
                         style={{
                           padding: '5px 10px',
@@ -673,7 +697,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 </Popup>
               </Marker>
             ))}
-            
+
             {location && !locationHidden && (
               <Marker
                 position={[location.latitude, location.longitude]}
@@ -687,10 +711,10 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
               >
                 <Popup>
                   <strong>Tava geolokācija</strong><br />
-                  {placeNames[`${location.latitude},${location.longitude}`] || 
+                  {placeNames[`${location.latitude},${location.longitude}`] ||
                     `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`}
                   <div style={{ marginTop: '10px' }}>
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -711,12 +735,12 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 </Popup>
               </Marker>
             )}
-            
+
             <MapEventHandler />
           </MapContainer>
-      
+
           {locationHidden && (
-            <div 
+            <div
               style={{
                 position: 'absolute',
                 bottom: '20px',
@@ -725,7 +749,7 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 zIndex: 1000
               }}
             >
-              <button 
+              <button
                 onClick={restoreLocationMarker}
                 style={{
                   padding: '8px 16px',

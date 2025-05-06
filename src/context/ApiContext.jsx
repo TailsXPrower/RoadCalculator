@@ -1,4 +1,3 @@
-// ApiContext.js
 import { createContext, useContext } from 'react';
 import axios from 'axios';
 
@@ -84,7 +83,7 @@ export const ApiProvider = ({ children }) => {
             pretty: 1
           }
         });
-        
+
         if (response.data.results?.length > 0) {
           return response.data.results[0].formatted || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         }
@@ -159,12 +158,36 @@ const trafficApi = {
     }
   };
 
+  // Add this to your ApiProvider component, with the other API methods
+const tomtomApi = {
+  getGasStations: async (lat, lng, radius = 5000) => {
+    try {
+      const response = await axios.get('https://api.tomtom.com/search/2/poiSearch/gas-station.json', {
+        params: {
+          lat,
+          lon: lng,
+          radius,
+          categorySet: '7311', // Category for gas stations
+          limit: 50,
+          key: import.meta.env.VITE_TOMTOM_API_KEY,
+        }
+      });
+      return response.data.results || [];
+    } catch (error) {
+      console.error('Gas station API error:', error);
+      throw error;
+    }
+  }
+};
+
+
   // Combined API context value
   const api = {
     weather: weatherApi,
     geocoding: geocodingApi,
     routing: routingApi,
-    // traffic: trafficApi
+    tomtom: tomtomApi,
+    traffic: trafficApi
   };
 
   return (
