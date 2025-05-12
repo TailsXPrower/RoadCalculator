@@ -564,7 +564,6 @@ const Map = ({ setDistance, setDuration, setResetRef, searchedLocation, markers,
                 flexDirection: 'column',
                 gap: '5px'
                 }}>
-                {/* Кнопка перехода к текущей локации */}
                 <button
                     onClick={() => window.flyToLocation?.()}
                     style={{
